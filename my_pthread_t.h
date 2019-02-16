@@ -33,6 +33,8 @@ typedef struct threadControlBlock {
 	// And more ...
 
 	// YOUR CODE HERE
+	State threadStatus;
+	my_pthread_t threadID;
 } tcb; 
 
 /* mutex struct definition */
@@ -46,6 +48,19 @@ typedef struct my_pthread_mutex_t {
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
 // YOUR CODE HERE
+
+/* @author - Ernest
+Initialization of Variables
+
+State: State is the state of the thread, whether it's ready/waiting to be scheduled, currently running, blocked by some call, or
+done executing.
+
+currentID: This is our mechanism for giving out threadIDs; for every new thread, assign its threadID to currentID, and increment
+currentID by 1.
+*/
+typedef enum state {READY, RUNNING, BLOCKED, DONE} State;
+int currentID = 0;
+/* @author - Ernest */
 
 
 /* Function Declarations: */
