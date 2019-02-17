@@ -20,8 +20,38 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ucontext.h>
+#include <errno.h>
+#include <sys/time.h>
+#include <signal.h>
 
 typedef uint my_pthread_t;
+
+/* @author: Ernest
+STACK_SIZE: The number of bytes to allocate for a context's stack for invoking makecontext().
+INTERVAL: Number of milliseconds the timer goes off for the scheduler to intervene.
+*/
+#ifdef _LP64
+	#define STACK_SIZE 2097152 + 16384
+#else
+	#define STACK_SIZE 16384
+#endif
+
+#define INTERVAL 100 //MILLISECONDS
+/* @author: Ernest */
+
+/* @author: Ernest
+Initialization of Custom Variable Types
+bool: Just a variable typevthat can be used as a regular boolean.
+state: The state type is the state of the thread, whether it's ready/waiting to be scheduled, currently running, blocked by some call, 
+or done executing.
+currentID: This is our mechanism for giving out threadIDs; for every new thread, assign its threadID to currentID, and increment
+currentID by 1.
+*/
+typedef enum {false, true} bool;
+typedef enum {READY, RUNNING, BLOCKED, DONE} state;
+int currentID = 0;
+/* @author: Ernest */
 
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
@@ -33,8 +63,11 @@ typedef struct threadControlBlock {
 	// And more ...
 
 	// YOUR CODE HERE
-	State threadStatus;
-	my_pthread_t threadID;
+	my_pthread_t threadID; //@author: Ernest - The thread's ID.
+	state thread_status; //@author: Ernest - The state of the thread.
+	ucontext_t context; //@author: Ernest - The thread's context, which also will contain the stack.
+	int time_counter; //@author: Ernest - The number of time quantum the thread has run.
+	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ).
 } tcb; 
 
 /* mutex struct definition */
@@ -48,20 +81,6 @@ typedef struct my_pthread_mutex_t {
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
 // YOUR CODE HERE
-
-/* @author - Ernest
-Initialization of Variables
-
-State: State is the state of the thread, whether it's ready/waiting to be scheduled, currently running, blocked by some call, or
-done executing.
-
-currentID: This is our mechanism for giving out threadIDs; for every new thread, assign its threadID to currentID, and increment
-currentID by 1.
-*/
-typedef enum state {READY, RUNNING, BLOCKED, DONE} State;
-int currentID = 0;
-/* @author - Ernest */
-
 
 /* Function Declarations: */
 
@@ -88,6 +107,12 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex);
 
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex);
+
+/* @author: Ernest
+My Function Declarations (descriptions in my_pthread.c file)
+*/
+void init_timer(struct itimerval *, int);
+/* @author: Ernest */
 
 #ifdef USE_MY_PTHREAD
 #define pthread_t my_pthread_t

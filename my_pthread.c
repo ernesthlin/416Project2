@@ -36,7 +36,7 @@ int my_pthread_yield() {
 
 /* terminate a thread */
 void my_pthread_exit(void *value_ptr) {
-	// Deallocated any dynamic memory created when starting this thread
+	// Deallocat any dynamic memory created when starting this thread
 
 	// YOUR CODE HERE
 };
@@ -46,7 +46,7 @@ void my_pthread_exit(void *value_ptr) {
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	// Waiting for a specific thread to terminate
 	// Once this thread finishes,
-	// Deallocated any dynamic memory created when starting this thread
+	// Deallocat any dynamic memory created when starting this thread
   
 	// YOUR CODE HERE
 	return 0;
@@ -92,8 +92,8 @@ int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
 
 /* scheduler */
 static void schedule() {
-	// Every time when timer interrup happens, your thread library 
-	// should be contexted switched from thread context to this 
+	// Every time when timer interrupt happens, your thread library 
+	// should be context switched from thread context to this 
 	// schedule function
 
 	// Invoke different actual scheduling algorithms
@@ -135,3 +135,16 @@ static void sched_mlfq() {
 
 // YOUR CODE HERE
 
+/* @author: Ernest
+My Function Declarations 
+initTimer: timer is the interval timer, time is the time (in milliseconds) until timer goes off (and SIGALRM is thrown).
+	-NOTE that this timer is finished after the time is up, so invoke initTimer again on the same timer struct to reset the timer.
+	-Reset the timer right after finishing the context switch in the SIGALRM handler.
+*/
+void init_timer(struct itimerval *timer, int time)
+{
+	timer->it_value.tv_sec = time / 1000;
+	timer->it_value.tv_usec = (time * 1000) % 1000000;
+	timer->it_interval.tv_sec = 0;
+	timer->it_interval.tv_usec = 0;
+}
