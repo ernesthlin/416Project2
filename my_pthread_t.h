@@ -38,13 +38,13 @@ MLFQ_LEVELS: Number of queues/priority levels for MLFQ scheduler.
 	#define STACK_SIZE 16384
 #endif
 
-#define INTERVAL 15 //MILLISECONDS
+#define INTERVAL 30 //MILLISECONDS
 #define MLFQ_LEVELS 4 
 /* @author: Ernest */
 
 /* @author: Ernest
 Initialization of Custom Variable Types and Variables
-bool: Just a variable typevthat can be used as a regular boolean.
+bool: Just a variable type that can be used as a regular boolean.
 state: The state type is the state of the thread, whether it's ready/waiting to be scheduled, currently running, blocked by some call, 
 or done executing.
 currentID: This is our mechanism for giving out threadIDs; for every new thread, assign its threadID to currentID, and increment
@@ -53,7 +53,6 @@ currentID by 1.
 typedef enum {false, true} bool;
 typedef enum {READY, RUNNING, BLOCKED, DONE} state;
 my_pthread_t currentID = 0;
-bool mutex_locked = false;
 /* @author: Ernest */
 
 typedef struct threadControlBlock {
@@ -68,11 +67,11 @@ typedef struct threadControlBlock {
 	// YOUR CODE HERE
 	my_pthread_t threadID; //@author: Ernest - The thread's ID.
 	state thread_state; //@author: Ernest - The state of the thread.
-	ucontext_t context; //@author: Ernest - The thread's context, which also will contain the stack.
+	ucontext_t *context; //@author: Ernest - The thread's context, which also will contain the stack.
 	int time_counter; //@author: Ernest - The number of time quantum the thread has run.
 	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ).
 	my_pthread_t *joined_on; //@author: Ernest - The thread ID of the thread this thread is waiting for/joined on.
-
+	bool called_exit; //@author: Ernest - Initially, false, only true if thread explicitly calls pthread_exit().
 } tcb; 
 
 /* mutex struct definition */
@@ -118,6 +117,7 @@ My Function Declarations (descriptions in my_pthread.c file)
 
 test_and_set(): This is an atomic operation to use in mutex lock/unlock functions.
 */
+void pthread_create_helper(tcb *, void *(*)(void *), void *);
 void start_timer(struct itimerval *, int);
 void stop_timer(struct itimerval *);
 bool test_and_set()

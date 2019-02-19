@@ -10,8 +10,15 @@
 
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
-const tcb *current_running_thread = NULL; //@author: Ernest -
-bool scheduler_started = false; //@author: Ernest -
+/* @author: Ernest (GENERAL NOTES)
+- The main context will be assigned a thread ID of 0. Assign this when my_pthread_create is invoked for the first time. This will
+  occur by checking if the current_running_thread is NULL, which then it will be set to point to main's thread ID, which will be 
+  initialized to 0.
+*/
+
+const my_pthread_t *current_running_thread = NULL; //@author: Ernest - Points to current running threadID, starts off as NULL.
+bool scheduler_started = false; //@author: Ernest - Starts off as false if no threads created, switches to true when first call to 
+//my_pthread_create() occurs.
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, 
@@ -25,12 +32,13 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr,
 	tcb *tc_block = (tcb *) malloc(sizeof(tcb));
 	init_tcb(tc_block);
 	*thread = tc_block->threadID;
-	getcontext(&tc_block->context);
-	tc_block->context.uc_link = 0; //SHOULD LINK TO BEGINNING OF my_pthread_exit()
+	tc_block->context = (ucontext_t *) malloc(sizeof(ucontext_t));
+	getcontext(tc_block->context);
+	tc_block->context.uc_link = 0; 
 	tc_block->context.uc_stack.ss_sp = (char *) malloc(STACK_SIZE);
 	tc_block->context.uc_stack.ss_size = STACK_SIZE;
 	tc_block->context.uc_stack.ss_flags = 0;
-	makecontext(&tc_block->context, function, 1, arg);
+	makecontext(tc_block->context, pthread_create_helper, 3, tc_block, function, arg);
 
 	return 0;
 };
@@ -155,6 +163,19 @@ stop_timer: Stops existing timer using timer struct.
 init_tcb: Initialize the thread control block contents of target. Thread ID is determiend by currentID, the thread starts off as ready, and the rest are initialized to zero.
 print_tcb: Print the contents of the thread control block, except for the context.
 */
+void pthread_create_helper(tcb *tc_block, void *(*function)(void *), void *arg)
+{
+	void *return_value = function(arg);
+	if(tc_block->called_exit == false)
+	{
+		//exit routine
+	}
+	else
+	{
+		//
+	}
+}
+
 void start_timer(struct itimerval *timer, int time)
 {
 	timer->it_value.tv_sec = time / 1000;
@@ -179,6 +200,8 @@ void init_tcb(tcb *target)
 	target->thread_state = READY;
 	target->time_counter = 0;
 	target->priority_level = 0;
+	target->joined_on = NULL;
+	target->called_exit = false;
 }
 
 void print_tcb(tcb *target)
@@ -204,5 +227,12 @@ void print_tcb(tcb *target)
 			break;
 	}
 	printf("Time Counter: %d, ", target->time_counter);
-	printf("Priority Level: %d }\n", target->priority_level);
+	printf("Priority Level: %d, ", target->priority_level);
+	printf("Joined on: ");
+	if(target->joined_on != NULL) printf("%ld, ", *target->joined_on);
+	else printf("NULL, ");
+	printf("Called exit: ");
+	if(target->called_exit == true) printf("True");
+	else printf("False");
+	printf(" }\n");
 }
