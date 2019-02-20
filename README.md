@@ -2,6 +2,16 @@
 
 CS416 Project2 – Planning
 
+Threads will be kept hashed in hash table in sorted linked lists. 
+Things we woudld need to do:
+
+Scheduler:
+
+1. Create a clock. Used to track how long the threads have been running 
+2. 
+
+Threads:
+
 pthread_create():
 - create TCB
 - make the context
@@ -22,4 +32,4 @@ pthread_join(thread T2, void **value_ptr):
 		- get T2’s return value (from where??) 	
 
 
-Threads will be kept hashed in hash table in sorted linked lists
+
