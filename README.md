@@ -20,3 +20,6 @@ pthread_join(thread T2, void **value_ptr):
 - if T2 state is DONE:
 	-if value_ptr is not null:
 		- get T2’s return value (from where??) 	
+
+
+Threads will be kept hashed in hash table in sorted linked lists
