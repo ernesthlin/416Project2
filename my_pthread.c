@@ -19,6 +19,8 @@
 const my_pthread_t *current_running_thread = NULL; //@author: Ernest - Points to current running threadID, starts off as NULL.
 bool scheduler_started = false; //@author: Ernest - Starts off as false if no threads created, switches to true when first call to 
 //my_pthread_create() occurs.
+int thread_id = 0; //@author: Jake - running counter for the current thread ID. The main context will be thread id 0, but everytime a new thread is created, thread_id will be incremented and assigned to the new thread as its thread id
+int mutex_id = 0; //@author: Jake - very similar to thread id. The first created mutex has id 0, incremented and assigned for every new mutex
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, 
@@ -154,6 +156,60 @@ static void sched_mlfq() {
 
 // YOUR CODE HERE
 
+/* @author: Jake
+create_queue: Instantiates a queue struct given a pointer the the queue
+enqueue: Enters the input thread in sorted order to the queue linked list. The thread will be enqueued before the first thread that shares its time_counter value or at the end of the list
+dequeue: Returns the first thread in the queue. Removes it from the queue
+peek: returns a pointer to the first TCB in the queue without removing it from the queue
+isEmpty: Checks to see if there are any threads in the queue
+*/
+void create_queue(queue * sched_queue) {
+	sched_queue->head = NULL;
+	//sched_queue->rear = NULL; // not really sure if we will really need this
+	sched_queue->num_threads = 0;
+}
+
+void enqueue(queue * sched_queue, threadControlBlock * thread) {
+	if(isEmpty(sched_queue) || sched_queue->head->time_counter >= thread->time_counter) {
+		thread->next = sched_queue->head;
+		sched_queue->head = thread;
+	} else {
+		threadControlBlock * cur = sched_queue->head;
+		threadControlBlock * prev = NULL;
+		while(cur != NULL && cur->time_counter < thread->time_counter) {
+			prev = cur;
+			cur = cur->next;
+		}
+		thread->next = cur;
+		prev->next = thread;
+	}
+	
+	sched_queue->num_threads++;
+}
+
+threadControlBlock * dequeue(queue * sched_queue) {
+	if(isEmpty(sched_queue)) {
+		printf("Queue is empty, there is nothing to dequeue\n");
+		return NULL;
+	}
+	threadControlBlock * result = sched_queue->head;
+	sched_queue->head = sched_queue->head->next; //The new head will be null if head is the only thing in the list, otherwise, head->next is the new head
+	
+	result->next = NULL;
+	
+	sched_queue->num_threads--;
+	return result;
+}
+
+threadControlBlock * peek(queue * sched_queue) {
+	return sched_queue->head;
+}
+bool isEmpty(queue * sched_queue) {
+	return (sched_queue->num_threads == 0);
+}
+/* @author: Jake */
+
+
 /* @author: Ernest
 My Function Declarations 
 start_timer: timer is the interval timer, time is the time (in milliseconds) until timer goes off (and SIGALRM is thrown).
@@ -236,3 +292,4 @@ void print_tcb(tcb *target)
 	else printf("False");
 	printf(" }\n");
 }
+

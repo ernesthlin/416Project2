@@ -41,19 +41,14 @@ MLFQ_LEVELS: Number of queues/priority levels for MLFQ scheduler.
 #define INTERVAL 30 //MILLISECONDS
 #define MLFQ_LEVELS 4 
 /* @author: Ernest */
+/* think maybe we should allocate... 2, 4, 8 Kb to each thread instead of that - Jake*/
 
-/* @author: Ernest
-Initialization of Custom Variable Types and Variables
-bool: Just a variable type that can be used as a regular boolean.
-state: The state type is the state of the thread, whether it's ready/waiting to be scheduled, currently running, blocked by some call, 
-or done executing.
-currentID: This is our mechanism for giving out threadIDs; for every new thread, assign its threadID to currentID, and increment
-currentID by 1.
+/* @author: Jake
+We have to decided how long a "time quantum" is. This is used to track how long a process has been running. Useful for the scheduler to decide who has priority and which threads have fast or slow jobs. I arbitrarily chose 1000 milliseconds or 1 second to be a time_quantum.
 */
-typedef enum {false, true} bool;
-typedef enum {READY, RUNNING, BLOCKED, DONE} state;
-my_pthread_t currentID = 0;
-/* @author: Ernest */
+#define TIME_QUANTUM 1000
+/* @author: Jake */
+
 
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
@@ -72,19 +67,48 @@ typedef struct threadControlBlock {
 	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ).
 	my_pthread_t *joined_on; //@author: Ernest - The thread ID of the thread this thread is waiting for/joined on.
 	bool called_exit; //@author: Ernest - Initially, false, only true if thread explicitly calls pthread_exit().
+	struct threadControlBlock *next; //@author: Jake - The TCB "Node"'s next pointer for the queue linked list and hash table linked list
 } tcb; 
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
 	/* add something here */
-
+	
 	// YOUR CODE HERE
+	int mutex_id; //@author: Jake - this mutex's unique id
+	int in_use_flag; //@author: Jake - Tracks if mutex is currently in use. Will be changed to 1 on creation by a thread, changed to 0 on release
+	my_pthread_t owner; //@author: Jake - the thread that created this mutex
 } my_pthread_mutex_t;
+
 
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
 // YOUR CODE HERE
+/* @author: Ernest
+Initialization of Custom Variable Types and Variables
+bool: Just a variable type that can be used as a regular boolean.
+state: The state type is the state of the thread, whether it's ready/waiting to be scheduled, currently running, blocked by some call, 
+or done executing.
+currentID: This is our mechanism for giving out threadIDs; for every new thread, assign its threadID to currentID, and increment
+currentID by 1.
+*/
+typedef enum {false, true} bool;
+typedef enum {READY, RUNNING, BLOCKED, DONE} state;
+my_pthread_t currentID = 0;
+/* @author: Ernest */
+
+/* @author: Jake
+The scheduler will use the following queue struct (or multiple for MLFQ) to keep track of which thread to run next. The queue is really a sorted linked list with nodes being threadControlBlocks. They will be sorted based on time_counter
+Prototypes are listed below along with other prototypes
+*/
+typedef struct queue {
+	struct threadControlBlock * head; // @author: Jake - head of queue. The next thread to run
+	//threadControlBlock * rear; // @author: Jake - rear of queue. Most queues keep a rear to add to when enqueue, but not sure if we will need this since we are enqueueing based on time_counter
+	int num_threads; // @author: Jake - tracks how many threads are in the queue
+	
+} queue;
+
 
 /* Function Declarations: */
 
@@ -131,6 +155,17 @@ void init_tcb(tcb *);
 void print_tcb(tcb *);
 /* @author: Ernest */
 
+/* @author: Jake
+Descriptions in my_pthread.c
+Prototype functions for the queue data structure(s) that track which thread to run
+*/
+void create_queue(queue * sched_queue);
+void enqueue(queue * sched_queue, threadControlBlock * thread);
+threadControlBlock * dequeue(queue * sched_queue);
+threadControlBlock * peek(queue * sched_queue);
+bool isEmpty(queue * sched_queue);
+/* @author: Jake */
+
 #ifdef USE_MY_PTHREAD
 #define pthread_t my_pthread_t
 #define pthread_mutex_t my_pthread_mutex_t
@@ -144,3 +179,4 @@ void print_tcb(tcb *);
 #endif
 
 #endif
+
