@@ -67,7 +67,7 @@ typedef struct threadControlBlock {
 	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ).
 	my_pthread_t *joined_on; //@author: Ernest - The thread ID of the thread this thread is waiting for/joined on.
 	bool called_exit; //@author: Ernest - Initially, false, only true if thread explicitly calls pthread_exit().
-	struct threadControlBlock *next; //@author: Jake - The TCB "Node"'s next pointer for the queue linked list and hash table linked list
+	struct threadControlBlock *next; //@author: Jake - The TCB "Node"'s next pointer for the STCF
 } tcb; 
 
 /* mutex struct definition */
@@ -99,15 +99,14 @@ my_pthread_t currentID = 0;
 /* @author: Ernest */
 
 /* @author: Jake
-The scheduler will use the following queue struct (or multiple for MLFQ) to keep track of which thread to run next. The queue is really a sorted linked list with nodes being threadControlBlocks. They will be sorted based on time_counter
+The STCF scheduler will use the following list struct to keep track of which thread to run next. The struct is a sorted linked list with nodes being threadControlBlocks. They will be sorted based on time_counter
 Prototypes are listed below along with other prototypes
 */
-typedef struct queue {
-	struct threadControlBlock * head; // @author: Jake - head of queue. The next thread to run
-	//threadControlBlock * rear; // @author: Jake - rear of queue. Most queues keep a rear to add to when enqueue, but not sure if we will need this since we are enqueueing based on time_counter
-	int num_threads; // @author: Jake - tracks how many threads are in the queue
+typedef struct list {
+	struct threadControlBlock * head; // @author: Jake - head of list. The next thread to run
+	int num_threads; // @author: Jake - tracks how many threads are in the list
 	
-} queue;
+} list;
 
 
 /* Function Declarations: */
@@ -157,13 +156,12 @@ void print_tcb(tcb *);
 
 /* @author: Jake
 Descriptions in my_pthread.c
-Prototype functions for the queue data structure(s) that track which thread to run
+Prototype functions for the list data structure(s) that track which thread to run for the STCF scheduler
 */
-void create_queue(queue * sched_queue);
-void enqueue(queue * sched_queue, threadControlBlock * thread);
-threadControlBlock * dequeue(queue * sched_queue);
-threadControlBlock * peek(queue * sched_queue);
-bool isEmpty(queue * sched_queue);
+void create_list(list * sched_list);
+void push(list * sched_list, threadControlBlock * thread);
+threadControlBlock * pop(list * sched_list);
+bool listIsEmpty(list * sched_list);
 /* @author: Jake */
 
 #ifdef USE_MY_PTHREAD

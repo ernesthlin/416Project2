@@ -157,24 +157,22 @@ static void sched_mlfq() {
 // YOUR CODE HERE
 
 /* @author: Jake
-create_queue: Instantiates a queue struct given a pointer the the queue
-enqueue: Enters the input thread in sorted order to the queue linked list. The thread will be enqueued before the first thread that shares its time_counter value or at the end of the list
-dequeue: Returns the first thread in the queue. Removes it from the queue
-peek: returns a pointer to the first TCB in the queue without removing it from the queue
-isEmpty: Checks to see if there are any threads in the queue
+create_priority_list: Instantiates a priority list struct given a pointer to some memeory for it
+push: Enters the input thread in sorted order to the linked list. The thread will be entered before the first thread that shares its time_counter value or at the end of the list
+pop: Returns the first thread in the list. Removes it from the list
+isEmpty: Checks to see if there are any threads in the list
 */
-void create_queue(queue * sched_queue) {
-	sched_queue->head = NULL;
-	//sched_queue->rear = NULL; // not really sure if we will really need this
-	sched_queue->num_threads = 0;
+void create_priority_list(list * sched_list) {
+	sched_list->head = NULL;
+	sched_list->num_threads = 0;
 }
 
-void enqueue(queue * sched_queue, threadControlBlock * thread) {
-	if(isEmpty(sched_queue) || sched_queue->head->time_counter >= thread->time_counter) {
-		thread->next = sched_queue->head;
-		sched_queue->head = thread;
+void push(list * sched_list, threadControlBlock * thread) {
+	if(isEmpty(sched_list) || sched_list->head->time_counter >= thread->time_counter) {
+		thread->next = sched_list->head;
+		sched_list->head = thread;
 	} else {
-		threadControlBlock * cur = sched_queue->head;
+		threadControlBlock * cur = sched_list->head;
 		threadControlBlock * prev = NULL;
 		while(cur != NULL && cur->time_counter < thread->time_counter) {
 			prev = cur;
@@ -184,28 +182,25 @@ void enqueue(queue * sched_queue, threadControlBlock * thread) {
 		prev->next = thread;
 	}
 	
-	sched_queue->num_threads++;
+	sched_list->num_threads++;
 }
 
-threadControlBlock * dequeue(queue * sched_queue) {
-	if(isEmpty(sched_queue)) {
-		printf("Queue is empty, there is nothing to dequeue\n");
+threadControlBlock * pop(list * sched_list) {
+	if(isEmpty(sched_list)) {
+		printf("STCF List is empty, there is nothing to pop\n");
 		return NULL;
 	}
-	threadControlBlock * result = sched_queue->head;
-	sched_queue->head = sched_queue->head->next; //The new head will be null if head is the only thing in the list, otherwise, head->next is the new head
+	threadControlBlock * result = sched_list->head;
+	sched_list->head = sched_list->head->next; //The new head will be null if head is the only thing in the list, otherwise, head->next is the new head
 	
 	result->next = NULL;
 	
-	sched_queue->num_threads--;
+	sched_list->num_threads--;
 	return result;
 }
 
-threadControlBlock * peek(queue * sched_queue) {
-	return sched_queue->head;
-}
-bool isEmpty(queue * sched_queue) {
-	return (sched_queue->num_threads == 0);
+bool isEmpty(list * sched_list) {
+	return (sched_list->num_threads == 0);
 }
 /* @author: Jake */
 
