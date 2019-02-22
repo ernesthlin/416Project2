@@ -48,7 +48,7 @@ typedef struct hash_table {
 } hash_table;
 
 typedef struct hash_node {
-	struct threadControlBlock * thread; //@author: Jake - the threadControlBlock that this node holds
+	tcb * thread; //@author: Jake - the threadControlBlock that this node holds
 	struct hash_node * next; //@author: Jake - the next node in the chain for this linked list
 } hash_node;
 
@@ -61,7 +61,7 @@ typedef struct list {
 } list;
 
 typedef struct list_node {
-	struct threadControlBlock * thread;
+	tcb * thread;
 	struct list_node * next;
 } list_node;
 
@@ -78,7 +78,7 @@ typedef struct queue {
 } queue;
 
 typedef struct queue_node {
-	struct threadControlBlock * thread;
+	tcb * thread;
 	struct queue_node * next;
 } queue_node;
 
@@ -87,14 +87,14 @@ typedef struct queue_node {
 //Hash Table Prototypes
 void create_hash_table(hash_table * ht);
 int hashcode(my_pthread_t threadID);
-struct threadControlBlock * get_hash_thread(my_pthread_t thread_id);
-void add_hash_thread(hash_table * ht, threadControlBlock * thread);
+tcb * get_hash_thread(hash_table * ht, my_pthread_t thread_id);
+void add_hash_thread(hash_table * ht, tcb * thread);
 void free_hash_nodes(hash_table * ht);
 
 //Priority Linked List (STCF) Prototypes
 void create_list(list * sched_list);
 void add_list_thread(list * sched_list, hash_table * ht, my_pthread_t thread_id);
-struct threadControlBlock * get_list_thread(list * sched_list);
+tcb * get_list_thread(list * sched_list);
 bool listIsEmpty(list * sched_list);
 void free_list_nodes(list* sched_list);
 
@@ -103,7 +103,7 @@ void create_mlfq(mlfq * mlfq_table);
 void free_mlfq_queues(mlfq * mlfq_table);
 void create_queue(queue * queue_list);
 void enqueue_thread(queue * queue_list, hash_table * ht, my_pthread_t thread_id);
-struct threadControlBlock * dequeue_thread(queue * queue_list);
+tcb * dequeue_thread(queue * queue_list);
 void free_queue_nodes(queue * queue_list);
 
 /* @author: Jake */
@@ -128,8 +128,8 @@ int hashcode(my_pthread_t threadID) {
 }
 
 /* @author: Jake - adds the threadControlBlock into the hash table */
-void add_hash_thread(hash_table * ht, threadControlBlock * thread) {
-	hash_node * hn = (struct hash_node *) malloc(sizeof(struct hash_node));
+void add_hash_thread(hash_table * ht, tcb * thread) {
+	hash_node * hn = (hash_node *) malloc(sizeof(hash_node));
 	hn->thread = thread;
 	hn->next = NULL;
 	int hashCode = hashcode(thread->threadID);
@@ -144,8 +144,8 @@ void add_hash_thread(hash_table * ht, threadControlBlock * thread) {
 }
 
 /* @author: Jake - finds the hash_node that contains the thread we are looking for */
-struct threadControlBlock * get_hash_thread(hash_table * ht, my_pthread_t thread_id) {
-	threadControlBlock * result = NULL;
+tcb * get_hash_thread(hash_table * ht, my_pthread_t thread_id) {
+	tcb * result = NULL;
 	hash_node * temp = NULL;
 	int hashCode = hashcode(thread_id);
 	if(ht->ht[hashCode] == NULL) {
@@ -197,10 +197,10 @@ void create_list(list * sched_list) {
 
 /* @author: Jake - creates a list_node for the given thread_id. Needs the hash table to get the info about the thread */
 void add_list_thread(list * sched_list, hash_table * ht, my_pthread_t thread_id) {
-	list_node * ln = (struct list_node *) malloc(sizeof(struct list_node));
+	list_node * ln = (list_node *) malloc(sizeof(list_node));
 	ln->thread = (get_hash_thread(ht, thread_id));
 	ln->next = NULL;
-	if(isEmpty(sched_list) || sched_list->head->thread->time_counter >= ln->thread->time_counter) {
+	if(listIsEmpty(sched_list) || sched_list->head->thread->time_counter >= ln->thread->time_counter) {
 		ln->next = sched_list->head;
 		sched_list->head = ln;
 	} else {
@@ -218,12 +218,12 @@ void add_list_thread(list * sched_list, hash_table * ht, my_pthread_t thread_id)
 }
 
 /* @author: Jake - grabs the TCB at the beginning of the priority list. Removes it from the list */
-struct threadControlBlock * get_list_thread(list * sched_list) {
-	if(listisEmpty(sched_list)) {
+tcb * get_list_thread(list * sched_list) {
+	if(listIsEmpty(sched_list)) {
 		printf("STCF List is empty, there is nothing to get\n");
 		return NULL;
 	}
-	threadControlBlock * result = sched_list->head->thread;
+	tcb * result = sched_list->head->thread;
 	list_node * temp = sched_list->head;//Since we are disconnecting this node from the list, we have to free it. But we need to replace the head before we do that
 	sched_list->head = sched_list->head->next;
 	free(temp);
@@ -254,7 +254,7 @@ void free_list_nodes(list* sched_list) {
 void create_mlfq(mlfq * mlfq_table) {
 	int i = 0;
 	for(i = 0; i < MLFQ_LEVELS; i++) {
-		queue * temp = (struct * queue) malloc(sizeof(struct queue));
+		queue * temp = (queue *) malloc(sizeof(queue));
 		mlfq_table->mlfq_scheduler[i] = temp;
 	}
 }
@@ -277,12 +277,12 @@ void create_queue(queue * queue_list) {
 
 /* @author: Jake - creates a queue_node for the given thread_id. */
 void enqueue_thread(queue * queue_list, hash_table * ht, my_pthread_t thread_id) {
-	queue_node * qn = (struct queue_node *) malloc(sizeof(struct queue_node));
+	queue_node * qn = (queue_node *) malloc(sizeof(queue_node));
 	qn->thread = (get_hash_thread(ht, thread_id));
 	qn->next = NULL;
 	
 	//If the queue is empty, this node is both the head and the tail
-	if(queue_list->rear == NULL) {
+	if(queue_list->tail == NULL) {
 		queue_list->head = qn;
 		queue_list->tail = qn;
 	} else {
@@ -292,13 +292,13 @@ void enqueue_thread(queue * queue_list, hash_table * ht, my_pthread_t thread_id)
 	queue_list->size++;
 }
 /* @author: Jake - grabs the TCB at the beginning of the queue. Removes it from the list */
-struct threadControlBlock * dequeue_thread(queue * queue_list) {
+tcb * dequeue_thread(queue * queue_list) {
 	if(queue_list->size == 0) {
 		printf("MLFQ Queue is empty, there is nothing to dequeue\n");
 		return NULL;
 	}
-	threadControlBlock * result = sched_list->head->thread;
-	queue_node * temp = sched_list->head;
+	tcb * result = queue_list->head->thread;
+	queue_node * temp = queue_list->head;
 	queue_list->head = queue_list->head->next;
 	free(temp);
 	
@@ -320,3 +320,5 @@ void free_queue_nodes(queue * queue_list) {
 	}
 }
 /* @author: Jake */
+
+
