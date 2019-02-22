@@ -32,6 +32,7 @@ STACK_SIZE: Number of bytes to allocate for a context's stack for invoking makec
 INTERVAL: Number of milliseconds the timer goes off for the scheduler to intervene.
 MLFQ_LEVELS: Number of queues/priority levels for MLFQ scheduler.
 */
+#define HASH_SIZE 1000 /* @author: Jake - size of hash table array */
 #ifdef _LP64
 	#define STACK_SIZE 2097152 + 16384
 #else
@@ -39,9 +40,8 @@ MLFQ_LEVELS: Number of queues/priority levels for MLFQ scheduler.
 #endif
 
 #define INTERVAL 30 //MILLISECONDS
-#define MLFQ_LEVELS 4 
+#define MLFQ_LEVELS 4 // Comment: Jake - technically 5 since 0 is also a level. That's how it's implemented in the mlfq struct
 /* @author: Ernest */
-/* think maybe we should allocate... 2, 4, 8 Kb to each thread instead of that - Jake*/
 
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
@@ -90,15 +90,51 @@ typedef enum {READY, RUNNING, BLOCKED, DONE} state;
 my_pthread_t currentID = 0;
 /* @author: Ernest */
 
-/* @author: Jake
-The STCF scheduler will use the following list struct to keep track of which thread to run next. The struct is a sorted linked list with nodes being threadControlBlocks. They will be sorted based on time_counter
-Prototypes are listed below along with other prototypes
-*/
+/* @author: Jake - Data Structures we will be using */
+//Hash Table Structs
+/* @author: Jake - The Hash Table will store all of our TCBs in hash_nodes. Our scheduler data structures will be pulling for this structure when given a thread_id*/
+typedef struct hash_table {
+	int size; //@author: Jake - how many threads are in this hash table
+	struct hash_node * ht[HASH_SIZE]; //@author: Jake - creates an array of hash_node pointers with Hash_Size amount of consecutive space
+} hash_table;
+
+typedef struct hash_node {
+	tcb * thread; //@author: Jake - the threadControlBlock that this node holds
+	struct hash_node * next; //@author: Jake - the next node in the chain for this linked list
+} hash_node;
+
+
+//Priority Linked List (STCF) Structs
+/* @author: Jake - Linked list that keeps threads in order of time_counter. If a thread that is being added has the same time_counter as an existing thread in the list, the new thread is added before it*/
 typedef struct list {
-	struct threadControlBlock * head; // @author: Jake - head of list. The next thread to run
-	int num_threads; // @author: Jake - tracks how many threads are in the list
+	struct list_node * head; // @author: Jake - head of list. The next thread to run
+	int size; // @author: Jake - tracks how many threads are in the list
 	
 } list;
+
+typedef struct list_node {
+	tcb * thread;
+	struct list_node * next;
+} list_node;
+
+
+//Queue Linked List (MLFQ) Structs
+/* @author: Jake - basically an array of queues. mlfq_scheduler[0] will be the highest priority queue at priority_level == 0 while mlfq_scheduler[MLFQ_LEVELS] will be the lowest priority queue */
+typedef struct mlfq {
+	int size;
+	struct queue * mlfq_scheduler[(MLFQ_LEVELS + 1)]; //@author: Jake - an array of queues each with a different priority. Threads will be moved from one queue to another when they pass a certain amount of time quantums. The +1 is because we count mlfq_scheduler[0] as a 
+} mlfq;
+
+typedef struct queue {
+	int size; //@author: Jake - how many threads are in this queue linked list
+	struct queue_node * head; //@author: Jake - the head of the queue where we will be getting from
+	struct queue_node * tail; //@author: Jake - the end of the queue where we will be adding to
+} queue;
+
+typedef struct queue_node {
+	tcb * thread;
+	struct queue_node * next;
+} queue_node;
 
 
 /* Function Declarations: */
@@ -146,14 +182,32 @@ void init_tcb(tcb *);
 void print_tcb(tcb *);
 /* @author: Ernest */
 
-/* @author: Jake
-Descriptions in my_pthread.c
-Prototype functions for the list data structure(s) that track which thread to run for the STCF scheduler
+/* @author: Jake - descriptions in file 
 */
+//Hash Table Prototypes
+void create_hash_table(hash_table * ht);
+int hashcode(my_pthread_t threadID);
+tcb * get_hash_thread(hash_table * ht, my_pthread_t thread_id);
+void add_hash_thread(hash_table * ht, tcb * thread);
+void free_hash_nodes(hash_table * ht);
+
+//Priority Linked List (STCF) Prototypes
 void create_list(list * sched_list);
-void push(list * sched_list, threadControlBlock * thread);
-threadControlBlock * pop(list * sched_list);
+void add_list_thread(list * sched_list, hash_table * ht, my_pthread_t thread_id);
+tcb * get_list_thread(list * sched_list);
 bool listIsEmpty(list * sched_list);
+void free_list_nodes(list* sched_list);
+
+//Queue Linked List (MLFQ) Prototypes
+void create_mlfq(mlfq * mlfq_table);
+void add_to_mlfq(mlfq * mlfq_table, hash_table * ht, my_pthread_t thread_id);
+tcb * get_from_mlfq(mlfq * mlfq_table, int priority);
+void free_mlfq_queues(mlfq * mlfq_table);
+void create_queue(queue * queue_list);
+void enqueue_thread(queue * queue_list, hash_table * ht, my_pthread_t thread_id);
+tcb * dequeue_thread(queue * queue_list);
+void free_queue_nodes(queue * queue_list);
+
 /* @author: Jake */
 
 #ifdef USE_MY_PTHREAD

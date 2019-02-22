@@ -3,7 +3,7 @@
 // Date:	January 2019
 
 // List all group member's name: Ernest Lin, Jake Zhou
-// username of iLab: ehl32
+// username of iLab: ehl32, xz346
 // iLab Server:
 
 #include "my_pthread_t.h"
@@ -155,54 +155,241 @@ static void sched_mlfq() {
 
 // YOUR CODE HERE
 
-/* @author: Jake
-create_priority_list: Instantiates a priority list struct given a pointer to some memeory for it
-push: Enters the input thread in sorted order to the linked list. The thread will be entered before the first thread that shares its time_counter value or at the end of the list
-pop: Returns the first thread in the list. Removes it from the list
-isEmpty: Checks to see if there are any threads in the list
-*/
-void create_priority_list(list * sched_list) {
-	sched_list->head = NULL;
-	sched_list->num_threads = 0;
-}
-
-void push(list * sched_list, threadControlBlock * thread) {
-	if(isEmpty(sched_list) || sched_list->head->time_counter >= thread->time_counter) {
-		thread->next = sched_list->head;
-		sched_list->head = thread;
-	} else {
-		threadControlBlock * cur = sched_list->head;
-		threadControlBlock * prev = NULL;
-		while(cur != NULL && cur->time_counter < thread->time_counter) {
-			prev = cur;
-			cur = cur->next;
-		}
-		thread->next = cur;
-		prev->next = thread;
+//Hash Table Functions
+/* @author: Jake - Initializes the hash table that we will be using. Must be given a pointer to where that hash table will be. Hash table is stored on stack since it is fixed since. Only the nodes will be dynamically allocated*/
+void create_hash_table(hash_table * ht) {
+	ht->size = 0;
+	int i = 0;
+	for(i = 0; i < HASH_SIZE; i++) {
+		ht->ht[i] = NULL;
 	}
-	
-	sched_list->num_threads++;
 }
 
-threadControlBlock * pop(list * sched_list) {
-	if(isEmpty(sched_list)) {
-		printf("STCF List is empty, there is nothing to pop\n");
+/* @author: Jake - returns the hash code of the given thread_id */
+int hashcode(my_pthread_t threadID) {
+	return (threadID % HASH_SIZE);
+}
+
+/* @author: Jake - adds the threadControlBlock into the hash table */
+void add_hash_thread(hash_table * ht, tcb * thread) {
+	hash_node * hn = (hash_node *) malloc(sizeof(hash_node));
+	hn->thread = thread;
+	hn->next = NULL;
+	int hashCode = hashcode(thread->threadID);
+	if(ht->ht[hashCode] == NULL) {
+		ht->ht[hashCode] = hn;
+	}
+	else {
+		hn->next = ht->ht[hashCode];
+		ht->ht[hashCode] = hn;
+	}
+	ht->size++;
+}
+
+/* @author: Jake - finds the hash_node that contains the thread we are looking for */
+tcb * get_hash_thread(hash_table * ht, my_pthread_t thread_id) {
+	tcb * result = NULL;
+	hash_node * temp = NULL;
+	int hashCode = hashcode(thread_id);
+	if(ht->ht[hashCode] == NULL) {
+		printf("Could not find thread with given threadID, returning NULL\n");
 		return NULL;
 	}
-	threadControlBlock * result = sched_list->head;
-	sched_list->head = sched_list->head->next; //The new head will be null if head is the only thing in the list, otherwise, head->next is the new head
-	
-	result->next = NULL;
-	
-	sched_list->num_threads--;
+	else {
+		temp = ht->ht[hashCode];
+		while(temp != NULL && temp->thread->threadID != thread_id) {
+			temp = temp->next;
+		}
+		if(temp == NULL) {
+			printf("Could not find thread with given threadID, returning NULL\n");
+			return NULL;
+		}
+		if(temp->thread->threadID == thread_id) {
+			result = temp->thread;
+		}
+		else {
+			printf("Something went wrong with getting from hash table\n");
+			exit(1);
+		}
+	}
 	return result;
 }
 
-bool isEmpty(list * sched_list) {
-	return (sched_list->num_threads == 0);
+/* @author: Jake - frees the dynamically allocated nodes of the hash table */
+void free_hash_nodes(hash_table * ht) {
+	hash_node * temp;
+	int i;
+	for(i = 0; i < HASH_SIZE; i++) {
+		while(ht->ht[i] != NULL) {
+			temp = ht->ht[i];
+			ht->size--;
+			ht->ht[i] = ht->ht[i]->next;
+			free(temp);
+		}
+	}
+}
+
+//Priority Linked List (STCF) Functions
+/* @author: Jake - creates the priority list */
+void create_list(list * sched_list) {
+	sched_list->head = NULL;
+	sched_list->size = 0;
+}
+
+/* @author: Jake - creates a list_node for the given thread_id. Needs the hash table to get the info about the thread */
+void add_list_thread(list * sched_list, hash_table * ht, my_pthread_t thread_id) {
+	list_node * ln = (list_node *) malloc(sizeof(list_node));
+	ln->thread = (get_hash_thread(ht, thread_id));
+	ln->next = NULL;
+	if(listIsEmpty(sched_list) || sched_list->head->thread->time_counter >= ln->thread->time_counter) {
+		ln->next = sched_list->head;
+		sched_list->head = ln;
+	} else {
+		list_node * cur = sched_list->head;
+		list_node * prev = NULL;
+		while(cur != NULL && cur->thread->time_counter < ln->thread->time_counter) {
+			prev = cur;
+			cur = cur->next;
+		}
+		ln->next = cur;
+		prev->next = ln;
+	}
+	
+	sched_list->size++;
+}
+
+/* @author: Jake - grabs the TCB at the beginning of the priority list. Removes it from the list */
+tcb * get_list_thread(list * sched_list) {
+	if(listIsEmpty(sched_list)) {
+		printf("STCF List is empty, there is nothing to get\n");
+		return NULL;
+	}
+	tcb * result = sched_list->head->thread;
+	list_node * temp = sched_list->head;//Since we are disconnecting this node from the list, we have to free it. But we need to replace the head before we do that
+	sched_list->head = sched_list->head->next;
+	free(temp);
+	
+	
+	sched_list->size--;
+	return result;
+}
+
+/* @author: Jake - quick check to see if the priority list is empty */
+bool listIsEmpty(list * sched_list) {
+	return (sched_list->size == 0);
+}
+
+/* Frees the malloced list nodes that were created when adding to the priority queue*/
+void free_list_nodes(list* sched_list) {
+	list_node * temp;
+	while(sched_list->head != NULL) {
+		temp = sched_list->head;
+		sched_list->size--;
+		sched_list->head = sched_list->head->next;
+		free(temp);
+	}
+}
+
+//Queue Linked List (MLFQ) Functions
+/* @author: Jake - creates a queue for the MLFQ. Initializes all the queues so they may be used as needed */
+void create_mlfq(mlfq * mlfq_table) {
+	mlfq_table->size = 0;
+	int i;
+	for(i = 0; i < MLFQ_LEVELS + 1; i++) {
+		queue * temp = (queue *) malloc(sizeof(queue));
+		create_queue(temp);
+		mlfq_table->mlfq_scheduler[i] = temp;
+	}
+}
+
+/* @author: Jake - adds the thread noted by the thread_id into the appropriate q */
+void add_to_mlfq(mlfq * mlfq_table, hash_table * ht, my_pthread_t thread_id) {
+	tcb * temp = get_hash_thread(ht, thread_id);
+	if(temp->priority_level > MLFQ_LEVELS) {
+		printf("Error, thread priority levels should not exceed MLFQ_LEVELS. Adjusting priority_level to be equal to MLFQ_LEVELS\n");
+		temp->priority_level = MLFQ_LEVELS;
+	}
+	queue * priority_queue = mlfq_table->mlfq_scheduler[temp->priority_level]; //grabs the appropriate priority queue according to the thread's priority level
+	//printf("TESTING - IN add_to_mlfq - before enqueue: threadid: %d\n", thread_id);
+	enqueue_thread(priority_queue, ht, thread_id);
+	//printf("TESTING - IN add_to_mlfq - after enqueue: threadid: %d\n", thread_id);
+	mlfq_table->size++;
+}
+
+/* @author: Jake - retrieves the tcb at the indicated priority queue */
+tcb * get_from_mlfq(mlfq * mlfq_table, int priority) {
+	if(priority < 0 || priority > MLFQ_LEVELS) {
+		printf("Error, only call get_from_mlfq with an appropriate priority level. Returning NULL\n");
+		return NULL;
+	}
+	queue * priority_queue = mlfq_table->mlfq_scheduler[priority];
+	mlfq_table->size--;
+	return dequeue_thread(priority_queue);
+}
+
+/* @author: Jake - frees all the queues in the MLFQ */
+void free_mlfq_queues(mlfq * mlfq_table) {
+	queue * temp = NULL;
+	int i = 0;
+	for(i = 0; i < MLFQ_LEVELS + 1; i++) {
+		temp = mlfq_table->mlfq_scheduler[i];
+		free_queue_nodes(temp);
+		free(temp);
+	}
+}
+
+void create_queue(queue * queue_list) {
+	queue_list->size = 0;
+	queue_list->head = NULL;
+	queue_list->tail = NULL;
+}
+
+/* @author: Jake - creates a queue_node for the given thread_id. */
+void enqueue_thread(queue * queue_list, hash_table * ht, my_pthread_t thread_id) {
+	queue_node * qn = (queue_node *) malloc(sizeof(queue_node));
+	qn->thread = get_hash_thread(ht, thread_id);
+	qn->next = NULL;
+	//printf("TESTING - IN enqueue_thread: threadid: %d\n", thread_id);
+	
+	//If the queue is empty, this node is both the head and the tail
+	if(queue_list->tail == NULL) {
+		queue_list->head = qn;
+		queue_list->tail = qn;
+		//printf("TESTING - IN enqueue_thread - if condition: threadid: %d\n", thread_id);
+	} else {
+		//printf("TESTING - IN enqueue_thread - before else condition: threadid: %d\n", thread_id);
+		queue_list->tail->next = qn;
+		queue_list->tail = qn;
+		//printf("TESTING - IN enqueue_thread - after else condition: threadid: %d\n", thread_id);
+	}
+	queue_list->size++;
+}
+/* @author: Jake - grabs the TCB at the beginning of the queue. Removes it from the list */
+tcb * dequeue_thread(queue * queue_list) {
+	if(queue_list->size == 0) {
+		printf("MLFQ Queue is empty, there is nothing to dequeue\n");
+		return NULL;
+	}
+	tcb * result = queue_list->head->thread;
+	queue_node * temp = queue_list->head;
+	queue_list->head = queue_list->head->next;
+	free(temp);
+	
+	queue_list->size--;
+	return result;
+}
+
+/* @author: Jake - frees the remaining queue nodes in the queue */
+void free_queue_nodes(queue * queue_list) {
+	queue_node * temp;
+	while(queue_list->head != NULL) {
+		temp = queue_list->head;
+		queue_list->size--;
+		queue_list->head = queue_list->head->next;
+		free(temp);
+	}
 }
 /* @author: Jake */
-
 
 /* @author: Ernest
 My Function Declarations 
