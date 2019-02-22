@@ -43,13 +43,6 @@ MLFQ_LEVELS: Number of queues/priority levels for MLFQ scheduler.
 /* @author: Ernest */
 /* think maybe we should allocate... 2, 4, 8 Kb to each thread instead of that - Jake*/
 
-/* @author: Jake
-We have to decided how long a "time quantum" is. This is used to track how long a process has been running. Useful for the scheduler to decide who has priority and which threads have fast or slow jobs. I arbitrarily chose 1000 milliseconds or 1 second to be a time_quantum.
-*/
-#define TIME_QUANTUM 1000
-/* @author: Jake */
-
-
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
 	// thread Id
@@ -67,7 +60,6 @@ typedef struct threadControlBlock {
 	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ).
 	my_pthread_t *joined_on; //@author: Ernest - The thread ID of the thread this thread is waiting for/joined on.
 	bool called_exit; //@author: Ernest - Initially, false, only true if thread explicitly calls pthread_exit().
-	struct threadControlBlock *next; //@author: Jake - The TCB "Node"'s next pointer for the STCF
 } tcb; 
 
 /* mutex struct definition */

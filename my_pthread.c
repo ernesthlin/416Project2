@@ -19,7 +19,6 @@
 const my_pthread_t *current_running_thread = NULL; //@author: Ernest - Points to current running threadID, starts off as NULL.
 bool scheduler_started = false; //@author: Ernest - Starts off as false if no threads created, switches to true when first call to 
 //my_pthread_create() occurs.
-int thread_id = 0; //@author: Jake - running counter for the current thread ID. The main context will be thread id 0, but everytime a new thread is created, thread_id will be incremented and assigned to the new thread as its thread id
 int mutex_id = 0; //@author: Jake - very similar to thread id. The first created mutex has id 0, incremented and assigned for every new mutex
 
 /* create a new thread */
