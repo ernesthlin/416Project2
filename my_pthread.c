@@ -103,6 +103,12 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	// Deallocate any dynamic memory created when starting this thread
   
 	// YOUR CODE HERE
+	if(scheduler == NULL)
+	{
+		scheduler = (ucontext_t *) malloc(sizeof(ucontext_t));
+		schedule();
+	}
+
 	return 0;
 };
 
