@@ -13,6 +13,10 @@
 /* @author: Ernest (GENERAL NOTES)
 */
 
+bool mainFlag = true;
+my_pthread_t *wait_for = NULL;
+struct itimerval myTimer;
+struct sigaction *sa = NULL;
 ucontext_t *scheduler = NULL;
 const my_pthread_t *current_running_thread = NULL; //@author: Ernest - Points to current running threadID, starts off as NULL.
 int mutex_id = 0; //@author: Jake - very similar to thread id. The first created mutex has id 0, incremented and assigned for every new mutex
@@ -76,9 +80,19 @@ int my_pthread_yield() {
 
 	// YOUR CODE HERE
 	tcb *yielding_thread = get_hash_thread(tcb_hash_table, *current_running_thread);
-	yielding_thread->thread_state = READY;
-	swapcontext(yielding_thread->context, scheduler);
+	yielding_thread->time_counter++;
 
+	if(yielding_thread->thread_state != BLOCKED)
+	{
+		yielding_thread->thread_state = READY;
+		add_list_thread(stcf_ready_list, tcb_hash_table, *current_running_thread);
+	}
+	else
+	{
+		add_list_thread(stcf_blocked_list, tcb_hash_table, *current_running_thread);
+	}
+
+	swapcontext(yielding_thread->context, scheduler);
 	return 0;
 };
 
@@ -95,10 +109,11 @@ void my_pthread_exit(void *value_ptr) {
 		exiting_thread->returned_value = (void *) malloc(sizeof(void *));
 		exiting_thread->returned_value = value_ptr;
 	}
-	free(exiting_thread->context->uc_stack.ss_sp);
-	free(exiting_thread->context);
 
 	// remove it from priority list
+	get_list_thread_with_id(stcf_ready_list, *current_running_thread);
+	free(exiting_thread->context->uc_stack.ss_sp);
+	free(exiting_thread->context);
 
 	// call scheduler ????
 }
@@ -114,7 +129,38 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	if(scheduler == NULL)
 	{
 		scheduler = (ucontext_t *) malloc(sizeof(ucontext_t));
-		//schedule();
+	}
+
+	if(mainFlag)
+	{
+		if(wait_for == NULL)
+			wait_for = (my_pthread_t *) malloc(sizeof(my_pthread_t));
+		*wait_for = thread;
+		mainFlag = false;
+		schedule();
+		tcb *thread_block = get_hash_thread(tcb_hash_table, *wait_for);
+		if(value_ptr != NULL)
+			*value_ptr = thread_block->returned_value;
+	}
+	else
+	{
+		tcb *thread_towaitfor = get_hash_thread(tcb_hash_table, thread);
+		while(thread_towaitfor->thread_state != DONE)
+		{
+			tcb *thread_joining = get_hash_thread(tcb_hash_table, *current_running_thread);
+			thread_joining->thread_state = BLOCKED;
+			if(thread_joining->joined_on == NULL)
+				thread_joining->joined_on = (my_pthread_t *) malloc(sizeof(my_pthread_t));
+			*(thread_joining->joined_on) = thread;
+			my_pthread_yield();
+			thread_towaitfor = get_hash_thread(tcb_hash_table, thread);
+		}
+
+		if(value_ptr != NULL)
+			*value_ptr = thread_towaitfor->returned_value;
+
+		// remove the thread_towaitfor's tcb from hash table
+		remove_hash_thread(tcb_hash_table, thread);
 	}
 
 	return 0;
@@ -177,8 +223,10 @@ static void schedule() {
 // schedule policy
 #ifndef MLFQ
 	// Choose STCF
+	sched_stcf();
 #else 
 	// Choose MLFQ
+	sched_mlfq();
 #endif
 
 }
@@ -264,6 +312,45 @@ tcb * get_hash_thread(hash_table * ht, my_pthread_t thread_id) {
 	return result;
 }
 
+/* @author: Jake - finds the hash_node that contains the thread we are looking for and removes it from the hash table*/
+tcb * remove_hash_thread(hash_table * ht, my_pthread_t thread_id) {
+	tcb * result = NULL;
+	hash_node * cur = NULL;
+	hash_node * prev = NULL;
+	int hashCode = hashcode(thread_id);
+	if(ht->ht[hashCode] == NULL) {
+		printf("Could not find thread with given threadID, returning NULL\n");
+		return NULL;
+	}
+	else {
+		cur = ht->ht[hashCode];
+		while(cur != NULL && cur->thread->threadID != thread_id) {
+			prev = cur;
+			cur = cur->next;
+		}
+		if(cur == NULL) {
+			printf("Could not find thread with given threadID, returning NULL\n");
+			return NULL;
+		}
+		if(cur->thread->threadID == thread_id) {
+			result = cur->thread;
+			if(cur->thread->threadID == ht->ht[hashCode]->thread->threadID) {
+				ht->ht[hashCode] = ht->ht[hashCode]->next;
+			}
+			else {
+				prev->next = cur->next;
+				free(cur);
+			}
+		}
+		else {
+			printf("Something went wrong with getting from hash table\n");
+			exit(1);
+		}
+	}
+	ht->size--;
+	return result;
+}
+
 /* @author: Jake - frees the dynamically allocated nodes of the hash table */
 void free_hash_nodes(hash_table * ht) {
 	hash_node * temp;
@@ -319,6 +406,38 @@ tcb * get_list_thread(list * sched_list) {
 	sched_list->head = sched_list->head->next;
 	free(temp);
 	
+	
+	sched_list->size--;
+	return result;
+}
+
+/* removes the thread of the given thread id from the priority list */
+tcb * get_list_thread_with_id(list * sched_list, my_pthread_t thread_id) {
+	if(listIsEmpty(sched_list)) {
+		printf("STCF List is empty, there is nothing to get\n");
+		return NULL;
+	}
+
+	tcb * result;
+	list_node * cur = sched_list->head;
+	list_node * prev = NULL;
+
+	while(cur != NULL && cur->thread->threadID != thread_id) {
+		prev = cur;
+		cur = cur->next;
+	}
+
+	if(cur == NULL) {
+		printf("Could not find thread with given thread_id in the priority list. Returning NULL");
+		return NULL;
+	}
+	result = cur->thread;
+	if(cur->thread->threadID == sched_list->head->thread->threadID) {
+		sched_list->head = sched_list->head->next;
+	} else {
+		prev->next = cur->next;
+	}
+	free(cur);
 	
 	sched_list->size--;
 	return result;
@@ -500,6 +619,20 @@ void init_tcb(tcb *target)
 	target->returned_value = NULL;
 }
 
+/*
+void *free_tcb(tcb *target)
+{
+	if(target->joined_on != NULL)
+		free(target->joined_on);
+	if(target->returned_value != NULL)
+	{
+		void *return_value = target->returned_value;
+		return return_value;
+	}
+	return NULL;
+}
+*/
+
 void print_tcb(tcb *target)
 {
 	printf("{ Thread ID: %d, ", target->threadID);
@@ -538,7 +671,9 @@ void print_tcb(tcb *target)
 
 void enable_handler(struct sigaction *sa)
 {
-	// sa->sa_handler = WHAT
+	if(sa == NULL)
+		sa = (struct sigaction *) malloc(sizeof(struct sigaction));
+	sa->sa_handler = handler;
 	sigaction(SIGALRM, sa, NULL);
 }
 
@@ -546,4 +681,10 @@ void disable_handler(struct sigaction *sa)
 {
 	sa->sa_handler = SIG_DFL;
 	sigaction(SIGALRM, sa, NULL);
+}
+
+void handler(int signum)
+{
+	if(signum == SIGALRM)
+		my_pthread_yield();
 }

@@ -187,10 +187,15 @@ bool test_and_set()
 }
 */
 
+void *free_tcb(tcb *);
 void init_tcb(tcb *);
 void print_tcb(tcb *);
 void enable_handler(struct sigaction *);
 void disable_handler(struct sigaction *);
+void handler(int);
+static void schedule();
+static void sched_stcf();
+static void sched_mlfq();
 /* @author: Ernest */
 
 //##############################################################################################################
@@ -202,11 +207,13 @@ int hashcode(my_pthread_t threadID);
 tcb * get_hash_thread(hash_table * ht, my_pthread_t thread_id);
 void add_hash_thread(hash_table * ht, tcb * thread);
 void free_hash_nodes(hash_table * ht);
+tcb * remove_hash_thread(hash_table * ht, my_pthread_t thread_id);
 
 //Priority Linked List (STCF) Prototypes
 void create_list(list * sched_list);
 void add_list_thread(list * sched_list, hash_table * ht, my_pthread_t thread_id);
 tcb * get_list_thread(list * sched_list);
+tcb * get_list_thread_with_id(list * sched_list, my_pthread_t thread_id);
 const tcb * peek_list_thread(list * sched_list);
 bool listIsEmpty(list * sched_list);
 void free_list_nodes(list* sched_list);
