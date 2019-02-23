@@ -75,7 +75,7 @@ typedef struct threadControlBlock {
 	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ).
 	my_pthread_t *joined_on; //@author: Ernest - The thread ID of the thread this thread is waiting for/joined on.
 	bool called_exit; //@author: Ernest - Initially, false, only true if thread explicitly calls pthread_exit().
-	void **returned_value; //@author: Ernest - Pointer to the returned value of the thread when DONE.
+	void *returned_value; //@author: Ernest - The returned value of the thread when DONE.
 } tcb; 
 
 /* mutex struct definition */

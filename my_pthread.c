@@ -43,6 +43,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr,
 	tc_block->context->uc_stack.ss_flags = 0;
 	makecontext(tc_block->context, pthread_create_helper, 3, tc_block, function, arg);
 
+	// Initialize the globals: TCB table and (priority) queues.
 	if(tcb_hash_table == NULL)
 	{
 		tcb_hash_table = (hash_table *) malloc(sizeof(hash_table));
@@ -84,8 +85,8 @@ void my_pthread_exit(void *value_ptr) {
 	exiting_thread->thread_state = DONE;
 	if(value_ptr != NULL)
 	{
-		exiting_thread->returned_value = (void **) malloc(sizeof(void *));
-		*exiting_thread->returned_value = value_ptr;
+		exiting_thread->returned_value = (void *) malloc(sizeof(void *));
+		exiting_thread->returned_value = value_ptr;
 	}
 	free(exiting_thread->context->uc_stack.ss_sp);
 	free(exiting_thread->context);
@@ -106,7 +107,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	if(scheduler == NULL)
 	{
 		scheduler = (ucontext_t *) malloc(sizeof(ucontext_t));
-		schedule();
+		//schedule();
 	}
 
 	return 0;
@@ -448,7 +449,7 @@ void pthread_create_helper(tcb *tc_block, void *(*function)(void *), void *arg)
 	void *return_value = function(arg);
 	if(tc_block->called_exit == false)
 	{
-		my_pthread_exit();
+		my_pthread_exit(return_value);
 	}
 	return;
 }
