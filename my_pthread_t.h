@@ -33,14 +33,29 @@ INTERVAL: Number of milliseconds the timer goes off for the scheduler to interve
 MLFQ_LEVELS: Number of queues/priority levels for MLFQ scheduler.
 */
 #define HASH_SIZE 1000 /* @author: Jake - size of hash table array */
+
+/*
 #ifdef _LP64
 	#define STACK_SIZE 2097152 + 16384
 #else
 	#define STACK_SIZE 16384
 #endif
+*/
+
+#define STACK_SIZE 64000
 
 #define INTERVAL 30 //MILLISECONDS
 #define MLFQ_LEVELS 4 // Comment: Jake - technically 5 since 0 is also a level. That's how it's implemented in the mlfq struct
+/* @author: Ernest */
+
+/* @author: Ernest
+Initialization of Custom Variable Types and Variables
+bool: Just a variable type that can be used as a regular boolean.
+state: The state type is the state of the thread, whether it's ready/waiting to be scheduled, currently running, blocked by some call, 
+or done executing.
+*/
+typedef enum {false, true} bool;
+typedef enum {READY, RUNNING, BLOCKED, DONE} state;
 /* @author: Ernest */
 
 typedef struct threadControlBlock {
@@ -60,6 +75,7 @@ typedef struct threadControlBlock {
 	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ).
 	my_pthread_t *joined_on; //@author: Ernest - The thread ID of the thread this thread is waiting for/joined on.
 	bool called_exit; //@author: Ernest - Initially, false, only true if thread explicitly calls pthread_exit().
+	void **returned_value; //@author: Ernest - Pointer to the returned value of the thread when DONE.
 } tcb; 
 
 /* mutex struct definition */
@@ -77,19 +93,8 @@ typedef struct my_pthread_mutex_t {
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
 // YOUR CODE HERE
-/* @author: Ernest
-Initialization of Custom Variable Types and Variables
-bool: Just a variable type that can be used as a regular boolean.
-state: The state type is the state of the thread, whether it's ready/waiting to be scheduled, currently running, blocked by some call, 
-or done executing.
-currentID: This is our mechanism for giving out threadIDs; for every new thread, assign its threadID to currentID, and increment
-currentID by 1.
-*/
-typedef enum {false, true} bool;
-typedef enum {READY, RUNNING, BLOCKED, DONE} state;
-my_pthread_t currentID = 0;
-/* @author: Ernest */
 
+//##############################################################################################################
 /* @author: Jake - Data Structures we will be using */
 //Hash Table Structs
 /* @author: Jake - The Hash Table will store all of our TCBs in hash_nodes. Our scheduler data structures will be pulling for this structure when given a thread_id*/
@@ -103,7 +108,7 @@ typedef struct hash_node {
 	struct hash_node * next; //@author: Jake - the next node in the chain for this linked list
 } hash_node;
 
-
+//##############################################################################################################
 //Priority Linked List (STCF) Structs
 /* @author: Jake - Linked list that keeps threads in order of time_counter. If a thread that is being added has the same time_counter as an existing thread in the list, the new thread is added before it*/
 typedef struct list {
@@ -117,7 +122,7 @@ typedef struct list_node {
 	struct list_node * next;
 } list_node;
 
-
+//##############################################################################################################
 //Queue Linked List (MLFQ) Structs
 /* @author: Jake - basically an array of queues. mlfq_scheduler[0] will be the highest priority queue at priority_level == 0 while mlfq_scheduler[MLFQ_LEVELS] will be the lowest priority queue */
 typedef struct mlfq {
@@ -136,7 +141,7 @@ typedef struct queue_node {
 	struct queue_node * next;
 } queue_node;
 
-
+//##############################################################################################################
 /* Function Declarations: */
 
 /* create a new thread */
@@ -163,6 +168,7 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex);
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex);
 
+//##############################################################################################################
 /* @author: Ernest
 My Function Declarations (descriptions in my_pthread.c file)
 
@@ -171,17 +177,21 @@ test_and_set(): This is an atomic operation to use in mutex lock/unlock function
 void pthread_create_helper(tcb *, void *(*)(void *), void *);
 void start_timer(struct itimerval *, int);
 void stop_timer(struct itimerval *);
+
+/*
 bool test_and_set()
 {
 	bool old_value = mutex_locked;
 	mutex_locked = true;
 	return old_value;
 }
+*/
 
 void init_tcb(tcb *);
 void print_tcb(tcb *);
 /* @author: Ernest */
 
+//##############################################################################################################
 /* @author: Jake - descriptions in file 
 */
 //Hash Table Prototypes

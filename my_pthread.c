@@ -11,15 +11,17 @@
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
 /* @author: Ernest (GENERAL NOTES)
-- The main context will be assigned a thread ID of 0. Assign this when my_pthread_create is invoked for the first time. This will
-  occur by checking if the current_running_thread is NULL, which then it will be set to point to main's thread ID, which will be 
-  initialized to 0.
 */
 
+ucontext_t *scheduler = NULL;
 const my_pthread_t *current_running_thread = NULL; //@author: Ernest - Points to current running threadID, starts off as NULL.
-bool scheduler_started = false; //@author: Ernest - Starts off as false if no threads created, switches to true when first call to 
-//my_pthread_create() occurs.
 int mutex_id = 0; //@author: Jake - very similar to thread id. The first created mutex has id 0, incremented and assigned for every new mutex
+my_pthread_t currentID = 0; // @author: Ernest - currentID is our mechanism for giving out threadIDs; for every new thread, 
+// assign its threadID to currentID, and increment currentID by 1.
+
+hash_table *tcb_hash_table = NULL;
+
+list *stcf_list = NULL;
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, 
@@ -35,11 +37,25 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr,
 	*thread = tc_block->threadID;
 	tc_block->context = (ucontext_t *) malloc(sizeof(ucontext_t));
 	getcontext(tc_block->context);
-	tc_block->context.uc_link = 0; 
-	tc_block->context.uc_stack.ss_sp = (char *) malloc(STACK_SIZE);
-	tc_block->context.uc_stack.ss_size = STACK_SIZE;
-	tc_block->context.uc_stack.ss_flags = 0;
+	tc_block->context->uc_link = 0; 
+	tc_block->context->uc_stack.ss_sp = (char *) malloc(STACK_SIZE);
+	tc_block->context->uc_stack.ss_size = STACK_SIZE;
+	tc_block->context->uc_stack.ss_flags = 0;
 	makecontext(tc_block->context, pthread_create_helper, 3, tc_block, function, arg);
+
+	if(tcb_hash_table == NULL)
+	{
+		tcb_hash_table = (hash_table *) malloc(sizeof(hash_table));
+		create_hash_table(tcb_hash_table);
+	}
+	add_hash_thread(tcb_hash_table, tc_block);
+
+	if(stcf_list == NULL)
+	{
+		stcf_list = (list *) malloc(sizeof(list));
+		create_list(stcf_list);
+	}
+	add_list_thread(stcf_list, tcb_hash_table, tc_block->threadID);
 
 	return 0;
 };
@@ -51,6 +67,10 @@ int my_pthread_yield() {
 	// Switch from thread context to scheduler context
 
 	// YOUR CODE HERE
+	tcb *yielding_thread = get_hash_thread(tcb_hash_table, *current_running_thread);
+	yielding_thread->thread_state = READY;
+	swapcontext(yielding_thread->context, scheduler);
+
 	return 0;
 };
 
@@ -59,7 +79,21 @@ void my_pthread_exit(void *value_ptr) {
 	// Deallocate any dynamic memory created when starting this thread
 
 	// YOUR CODE HERE
-};
+	tcb *exiting_thread = get_hash_thread(tcb_hash_table, *current_running_thread);
+	exiting_thread->called_exit = false;
+	exiting_thread->thread_state = DONE;
+	if(value_ptr != NULL)
+	{
+		exiting_thread->returned_value = (void **) malloc(sizeof(void *));
+		*exiting_thread->returned_value = value_ptr;
+	}
+	free(exiting_thread->context->uc_stack.ss_sp);
+	free(exiting_thread->context);
+
+	// remove it from priority list
+
+	// call scheduler ????
+}
 
 
 /* wait for thread termination */
@@ -155,6 +189,7 @@ static void sched_mlfq() {
 
 // YOUR CODE HERE
 
+//##############################################################################################################
 //Hash Table Functions
 /* @author: Jake - Initializes the hash table that we will be using. Must be given a pointer to where that hash table will be. Hash table is stored on stack since it is fixed since. Only the nodes will be dynamically allocated*/
 void create_hash_table(hash_table * ht) {
@@ -229,6 +264,7 @@ void free_hash_nodes(hash_table * ht) {
 	}
 }
 
+//##############################################################################################################
 //Priority Linked List (STCF) Functions
 /* @author: Jake - creates the priority list */
 void create_list(list * sched_list) {
@@ -290,6 +326,7 @@ void free_list_nodes(list* sched_list) {
 	}
 }
 
+//##############################################################################################################
 //Queue Linked List (MLFQ) Functions
 /* @author: Jake - creates a queue for the MLFQ. Initializes all the queues so they may be used as needed */
 void create_mlfq(mlfq * mlfq_table) {
@@ -405,12 +442,9 @@ void pthread_create_helper(tcb *tc_block, void *(*function)(void *), void *arg)
 	void *return_value = function(arg);
 	if(tc_block->called_exit == false)
 	{
-		//exit routine
+		my_pthread_exit();
 	}
-	else
-	{
-		//
-	}
+	return;
 }
 
 void start_timer(struct itimerval *timer, int time)
@@ -439,6 +473,7 @@ void init_tcb(tcb *target)
 	target->priority_level = 0;
 	target->joined_on = NULL;
 	target->called_exit = false;
+	target->returned_value = NULL;
 }
 
 void print_tcb(tcb *target)
