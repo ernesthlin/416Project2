@@ -324,6 +324,16 @@ tcb * get_list_thread(list * sched_list) {
 	return result;
 }
 
+/* @author: Jake - returns the TCB at the beginning of the priority list without removing it from the list */
+const tcb * peek_list_thread(list * sched_list) {
+	if(listIsEmpty(sched_list)) {
+		printf("STCF List is empty, there is nothing to peek\n");
+		return NULL;
+	}
+	tcb * result = sched_list->head->thread;
+	return result;
+}
+
 /* @author: Jake - quick check to see if the priority list is empty */
 bool listIsEmpty(list * sched_list) {
 	return (sched_list->size == 0);

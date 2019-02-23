@@ -207,6 +207,7 @@ void free_hash_nodes(hash_table * ht);
 void create_list(list * sched_list);
 void add_list_thread(list * sched_list, hash_table * ht, my_pthread_t thread_id);
 tcb * get_list_thread(list * sched_list);
+const tcb * peek_list_thread(list * sched_list);
 bool listIsEmpty(list * sched_list);
 void free_list_nodes(list* sched_list);
 
