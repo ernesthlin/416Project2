@@ -516,3 +516,17 @@ void print_tcb(tcb *target)
 	printf(" }\n");
 }
 
+//##############################################################################################################
+// Signal enable/disable
+
+void enable_handler(struct sigaction *sa)
+{
+	sa->sa_handler = SIG_DFL;
+	sigaction(SIGALRM, sa, NULL);
+}
+
+void disable_handler(struct sigaciton *sa)
+{
+	// sa->sa_handler = WHAT
+	sigaction(SIGALRM, sa, NULL);
+}
