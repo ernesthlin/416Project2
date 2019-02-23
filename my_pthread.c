@@ -21,7 +21,8 @@ my_pthread_t currentID = 0; // @author: Ernest - currentID is our mechanism for 
 
 hash_table *tcb_hash_table = NULL;
 
-list *stcf_list = NULL;
+list *stcf_ready_list = NULL;
+list *stcf_blocked_list = NULL;
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, 
@@ -51,12 +52,18 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr,
 	}
 	add_hash_thread(tcb_hash_table, tc_block);
 
-	if(stcf_list == NULL)
+	if(stcf_ready_list == NULL)
 	{
-		stcf_list = (list *) malloc(sizeof(list));
-		create_list(stcf_list);
+		stcf_ready_list = (list *) malloc(sizeof(list));
+		create_list(stcf_ready_list);
 	}
-	add_list_thread(stcf_list, tcb_hash_table, tc_block->threadID);
+	add_list_thread(stcf_ready_list, tcb_hash_table, tc_block->threadID);
+
+	if(stcf_blocked_list = NULL)
+	{
+		stcf_blocked_list = (list *) malloc(sizeof(list));
+		create_list(stcf_blocked_list);
+	}
 
 	return 0;
 };
@@ -521,12 +528,12 @@ void print_tcb(tcb *target)
 
 void enable_handler(struct sigaction *sa)
 {
-	sa->sa_handler = SIG_DFL;
+	// sa->sa_handler = WHAT
 	sigaction(SIGALRM, sa, NULL);
 }
 
-void disable_handler(struct sigaciton *sa)
+void disable_handler(struct sigaction *sa)
 {
-	// sa->sa_handler = WHAT
+	sa->sa_handler = SIG_DFL;
 	sigaction(SIGALRM, sa, NULL);
 }

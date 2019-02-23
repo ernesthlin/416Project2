@@ -189,6 +189,8 @@ bool test_and_set()
 
 void init_tcb(tcb *);
 void print_tcb(tcb *);
+void enable_handler(struct sigaction *);
+void disable_handler(struct sigaction *);
 /* @author: Ernest */
 
 //##############################################################################################################
