@@ -16,7 +16,7 @@
 	#define STACK_SIZE 16384
 #endif
 #define INTERVAL 30 //MILLISECONDS
-#define MLFQ_LEVELS 4 //technically 5 since 0 is also a level
+#define MLFQ_LEVELS 4 
 
 typedef uint my_pthread_t;
 typedef enum {false, true} bool;
@@ -36,11 +36,12 @@ typedef struct threadControlBlock {
 	state thread_state; //@author: Ernest - The state of the thread.
 	ucontext_t *context; //@author: Ernest - The thread's context, which also will contain the stack.
 	int time_counter; //@author: Ernest - The number of time quantum the thread has run.
-	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ). Starts at 0, ends at and including MLFQ_LEVELS
+	int priority_level; //@author: Ernest - The priority level of the thread (for MLFQ). Starts at 0, ends before MLFQ_LEVELS
 	my_pthread_t *joined_on; //@author: Ernest - The thread ID of the thread this thread is waiting for/joined on.
 	bool called_exit; //@author: Ernest - Initially, false, only true if thread explicitly calls pthread_exit().
 } tcb; 
 
+/* @author: Jake - Data Structures we will be using */
 //Hash Table Structs
 typedef struct hash_table {
 	int size; //@author: Jake - how many threads are in this hash table
@@ -69,7 +70,7 @@ typedef struct list_node {
 //Queue Linked List (MLFQ) Structs
 typedef struct mlfq {
 	int size;
-	struct queue * mlfq_scheduler[(MLFQ_LEVELS + 1)]; //@author: Jake - an array of queues each with a different priority. Threads will be moved from one queue to another when they pass a certain amount of time quantums. The +1 is because we count mlfq_scheduler[0] as a 
+	struct queue * mlfq_scheduler[MLFQ_LEVELS]; //@author: Jake - an array of queues each with a different priority. Threads will be moved from one queue to another when they pass a certain amount of time quantums.
 } mlfq;
 
 typedef struct queue {
@@ -257,7 +258,7 @@ void free_list_nodes(list* sched_list) {
 void create_mlfq(mlfq * mlfq_table) {
 	mlfq_table->size = 0;
 	int i;
-	for(i = 0; i < MLFQ_LEVELS + 1; i++) {
+	for(i = 0; i < MLFQ_LEVELS; i++) {
 		queue * temp = (queue *) malloc(sizeof(queue));
 		create_queue(temp);
 		mlfq_table->mlfq_scheduler[i] = temp;
@@ -267,9 +268,9 @@ void create_mlfq(mlfq * mlfq_table) {
 /* @author: Jake - adds the thread noted by the thread_id into the appropriate q */
 void add_to_mlfq(mlfq * mlfq_table, hash_table * ht, my_pthread_t thread_id) {
 	tcb * temp = get_hash_thread(ht, thread_id);
-	if(temp->priority_level > MLFQ_LEVELS) {
+	if(temp->priority_level >= MLFQ_LEVELS) {
 		printf("Error, thread priority levels should not exceed MLFQ_LEVELS. Adjusting priority_level to be equal to MLFQ_LEVELS\n");
-		temp->priority_level = MLFQ_LEVELS;
+		temp->priority_level = MLFQ_LEVELS - 1;
 	}
 	queue * priority_queue = mlfq_table->mlfq_scheduler[temp->priority_level]; //grabs the appropriate priority queue according to the thread's priority level
 	//printf("TESTING - IN add_to_mlfq - before enqueue: threadid: %d\n", thread_id);
@@ -280,7 +281,7 @@ void add_to_mlfq(mlfq * mlfq_table, hash_table * ht, my_pthread_t thread_id) {
 
 /* @author: Jake - retrieves the tcb at the indicated priority queue */
 tcb * get_from_mlfq(mlfq * mlfq_table, int priority) {
-	if(priority < 0 || priority > MLFQ_LEVELS) {
+	if(priority < 0 || priority >= MLFQ_LEVELS) {
 		printf("Error, only call get_from_mlfq with an appropriate priority level. Returning NULL\n");
 		return NULL;
 	}
@@ -293,7 +294,7 @@ tcb * get_from_mlfq(mlfq * mlfq_table, int priority) {
 void free_mlfq_queues(mlfq * mlfq_table) {
 	queue * temp = NULL;
 	int i = 0;
-	for(i = 0; i < MLFQ_LEVELS + 1; i++) {
+	for(i = 0; i < MLFQ_LEVELS; i++) {
 		temp = mlfq_table->mlfq_scheduler[i];
 		free_queue_nodes(temp);
 		free(temp);
@@ -384,7 +385,7 @@ int main(int argc, char ** argv) {
 	tcb * thread4 = (tcb *) malloc(sizeof(tcb));
 	thread4->threadID = 4;
 	thread4->time_counter = 4;
-	thread4->priority_level = 4;
+	thread4->priority_level = 3;
 	printf("thread4, threadID: %d, time_counter: %d, priority_level: %d\n", thread4->threadID, thread4->time_counter, thread4->priority_level);
 	printf("\n");
 	
@@ -450,7 +451,9 @@ int main(int argc, char ** argv) {
 	printf("temp thread, threadID: %d, time_counter: %d, priority_level: %d\n", temp->threadID, temp->time_counter, temp->priority_level);
 	temp = get_from_mlfq(my_mlfq, 3);
 	printf("temp thread, threadID: %d, time_counter: %d, priority_level: %d\n", temp->threadID, temp->time_counter, temp->priority_level);
-	temp = get_from_mlfq(my_mlfq, 4);
+	temp = get_from_mlfq(my_mlfq, 4);	//Should be an error
+	
+	//Since the above returns NULL, the following line causes a seg fault, this is a good reminder to always check to see if the returned thread is NULL or not before executing anything else
 	printf("temp thread, threadID: %d, time_counter: %d, priority_level: %d\n", temp->threadID, temp->time_counter, temp->priority_level);
 	printf("Size of mlfq: %d\n", my_mlfq->size); //Should be 0
 	printf("\n");
