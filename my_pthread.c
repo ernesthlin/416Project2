@@ -19,7 +19,7 @@ struct itimerval myTimer;
 struct sigaction *sa = NULL;
 ucontext_t *scheduler = NULL;
 const my_pthread_t *current_running_thread = NULL; //@author: Ernest - Points to current running threadID, starts off as NULL.
-int mutex_id = 0; //@author: Jake - very similar to thread id. The first created mutex has id 0, incremented and assigned for every new mutex
+int global_mutex_id = 0; //@author: Jake - very similar to thread id. The first created mutex has id 0, incremented and assigned for every new mutex
 my_pthread_t currentID = 0; // @author: Ernest - currentID is our mechanism for giving out threadIDs; for every new thread, 
 // assign its threadID to currentID, and increment currentID by 1.
 
@@ -169,11 +169,21 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 };
 
 /* initialize the mutex lock */
-int my_pthread_mutex_init(my_pthread_mutex_t *mutex, 
-                          const pthread_mutexattr_t *mutexattr) {
+int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
 	// Initialize data structures for this mutex
 
 	// YOUR CODE HERE
+	if(mutex == NULL) {
+		printf("Error: did not pass in a proper mutex pointer for mutex_init\n");
+		exit(0);
+	}
+	
+	mutex->mutex_id = global_mutex_id;
+	global_mutex_id++;
+	mutex->owner = -1;
+	mutex->blocked_threads = (queue *) malloc(sizeof(queue));
+	create_queue(mutex->blocked_threads);
+
 	return 0;
 };
 
@@ -202,6 +212,15 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
 	// Deallocate dynamic memory created in my_pthread_mutex_init
+
+	if(mutex == NULL) {
+		printf("Error: did not pass in a proper mutex pointer for mutex_destroy\n");
+		exit(0);
+	}
+
+	free_queue_nodes(mutex->blocked_threads);
+	free(mutex->blocked_threads);
+	free(mutex);
 
 	return 0;
 };
@@ -478,7 +497,7 @@ void free_list_nodes(list* sched_list) {
 void create_mlfq(mlfq * mlfq_table) {
 	mlfq_table->size = 0;
 	int i;
-	for(i = 0; i < MLFQ_LEVELS + 1; i++) {
+	for(i = 0; i < MLFQ_LEVELS; i++) {
 		queue * temp = (queue *) malloc(sizeof(queue));
 		create_queue(temp);
 		mlfq_table->mlfq_scheduler[i] = temp;
@@ -514,7 +533,7 @@ tcb * get_from_mlfq(mlfq * mlfq_table, int priority) {
 void free_mlfq_queues(mlfq * mlfq_table) {
 	queue * temp = NULL;
 	int i = 0;
-	for(i = 0; i < MLFQ_LEVELS + 1; i++) {
+	for(i = 0; i < MLFQ_LEVELS; i++) {
 		temp = mlfq_table->mlfq_scheduler[i];
 		free_queue_nodes(temp);
 		free(temp);

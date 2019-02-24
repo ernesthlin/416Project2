@@ -84,8 +84,8 @@ typedef struct my_pthread_mutex_t {
 	
 	// YOUR CODE HERE
 	int mutex_id; //@author: Jake - this mutex's unique id
-	int in_use_flag; //@author: Jake - Tracks if mutex is currently in use. Will be changed to 1 on creation by a thread, changed to 0 on release
 	my_pthread_t owner; //@author: Jake - the thread that created this mutex
+	struct queue * blocked_threads; //@author: Jake - If this mutex is already in use, all other threads that call lock on this mutex gets stored here until the mutexed is unlocked, these threads will be returned to the ready queue when this happens
 } my_pthread_mutex_t;
 
 
@@ -127,7 +127,7 @@ typedef struct list_node {
 /* @author: Jake - basically an array of queues. mlfq_scheduler[0] will be the highest priority queue at priority_level == 0 while mlfq_scheduler[MLFQ_LEVELS] will be the lowest priority queue */
 typedef struct mlfq {
 	int size;
-	struct queue * mlfq_scheduler[(MLFQ_LEVELS + 1)]; //@author: Jake - an array of queues each with a different priority. Threads will be moved from one queue to another when they pass a certain amount of time quantums. The +1 is because we count mlfq_scheduler[0] as a 
+	struct queue * mlfq_scheduler[MLFQ_LEVELS]; //@author: Jake - an array of queues each with a different priority. Threads will be moved from one queue to another when they pass a certain amount of time quantums. The +1 is because we count mlfq_scheduler[0] as a 
 } mlfq;
 
 typedef struct queue {
