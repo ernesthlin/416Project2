@@ -115,7 +115,7 @@ void my_pthread_exit(void *value_ptr) {
 	free(exiting_thread->context->uc_stack.ss_sp);
 	free(exiting_thread->context);
 
-	// call scheduler ????
+	my_pthread_yield();
 }
 
 
@@ -129,6 +129,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	if(scheduler == NULL)
 	{
 		scheduler = (ucontext_t *) malloc(sizeof(ucontext_t));
+
 	}
 
 	if(mainFlag)
@@ -138,6 +139,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 		*wait_for = thread;
 		mainFlag = false;
 		schedule();
+		mainFlag = true;
 		tcb *thread_block = get_hash_thread(tcb_hash_table, *wait_for);
 		if(value_ptr != NULL)
 			*value_ptr = thread_block->returned_value;
@@ -237,6 +239,7 @@ static void sched_stcf() {
 	// (feel free to modify arguments and return types)
 
 	// YOUR CODE HERE
+	
 }
 
 /* Preemptive MLFQ scheduling algorithm */
